@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  password           String
+  firstName          String?
+  lastName           String?
+  phone              String?        @unique
+  avatar             String?
+  role               Role           @default(USER)
+  isEmailVerified    Boolean        @default(false)
+  isTwoFactorEnabled Boolean        @default(false)
+  twoFactorSecret    String?
+  verificationToken  String?        @unique
+  resetToken         String?        @unique
+  resetTokenExpiry   DateTime?
+  lastLogin          DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  refreshTokens      RefreshToken[]
+  events             Event[]        @relation("EventOrganizer")
+  reservations       Reservation[]
+  favorites          Event[]        @relation("UserFavorites")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Event {
+  id             String        @id @default(uuid())
+  title          String
+  description    String
+  location       String
+  city           String
+  zipCode        String
+  country        String
+  startDate      DateTime
+  endDate        DateTime
+  price          Decimal       @db.Decimal(10, 2)
+  capacity       Int
+  remainingSpots Int
+  category       EventCategory
+  status         EventStatus   @default(DRAFT)
+  images         String[]
+  organizerId    String
+  organizer      User          @relation("EventOrganizer", fields: [organizerId], references: [id])
+  reservations   Reservation[]
+  favoritedBy    User[]        @relation("UserFavorites")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizerId])
+  @@index([category])
+  @@index([status])
+}
+
+model Reservation {
+  id              String            @id @default(uuid())
+  eventId         String
+  event           Event             @relation(fields: [eventId], references: [id])
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  status          ReservationStatus @default(PENDING)
+  numberOfTickets Int
+  totalPrice      Decimal           @db.Decimal(10, 2)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@index([status])
+}
+
+enum Role {
+  USER
+  ORGANIZER
+  ADMIN
+}
+
+enum EventCategory {
+  CONFERENCE
+  WORKSHOP
+  SEMINAR
+  NETWORKING
+  SOCIAL
+  OTHER
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
